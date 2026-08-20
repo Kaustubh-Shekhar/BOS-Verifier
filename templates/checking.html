@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Checking {{ job.filename }}{% endblock %}
+{% block body %}
+
+<div class="card">
+  <h2>Checking {{ job.filename }}</h2>
+  <p class="lede" id="msg">Reading the document&hellip;</p>
+  <div class="bar"><div id="fill"></div></div>
+  <p class="foot" id="count">Starting up.</p>
+</div>
+
+<script>
+  const jobId = {{ job.id|tojson }};
+  const fill = document.getElementById("fill");
+  const msg = document.getElementById("msg");
+  const count = document.getElementById("count");
+
+  async function poll() {
+    try {
+      const r = await fetch("/status/" + jobId);
+      const s = await r.json();
+      if (s.total) {
+        const pct = Math.round((s.done / s.total) * 100);
+        fill.style.width = pct + "%";
+        count.textContent = "Page " + Math.min(s.done + 1, s.total) +
+                            " of " + s.total + " — " + pct + "%";
+      }
+      if (s.state === "done") {
+        msg.textContent = "Done. Opening the report…";
+        window.location = "/report/" + jobId;
+        return;
+      }
+      if (s.state === "failed") {
+        window.location = "/report/" + jobId;
+        return;
+      }
+      msg.textContent = "Examining each page for seals, stamps and signatures…";
+    } catch (e) {
+      count.textContent = "Lost contact with the app — retrying…";
+    }
+    setTimeout(poll, 1200);
+  }
+  poll();
+</script>
+
+{% endblock %}

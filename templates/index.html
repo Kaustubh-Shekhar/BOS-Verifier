@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block body %}
+
+{% if not tesseract %}
+<div class="err">
+  <strong>Tesseract OCR was not found.</strong> A BoS is a scan, so every
+  text-based check needs it. Install Tesseract, or set the
+  <code>TESSERACT_CMD</code> environment variable to its full path, then
+  restart this app.
+</div>
+{% endif %}
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <h2>Check a Board of Studies</h2>
+  <p class="lede">
+    Upload the scanned BoS PDF. Checking takes roughly five seconds a page,
+    because every page is read and examined for seals, stamps and signatures.
+  </p>
+  <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+    <div class="drop">
+      <input type="file" name="bos" accept="application/pdf,.pdf" required>
+      <div><button type="submit">Check this BoS</button></div>
+      <p class="foot" style="margin-bottom:0">PDF only, up to {{ max_mb }} MB.</p>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>What gets checked</h2>
+  <ul class="checklist">
+    <li>Page 1 is on the college letterhead</li>
+    <li>The round seal appears on every page, first to last</li>
+    <li>Where the minutes end, the Principal and HOD have signed and sealed</li>
+    <li>The attendance sheet is on the letterhead</li>
+    <li>Annexure-1 states the percentage modified (or Nil), signed and sealed</li>
+    <li>Every course in Annexure-1 has its syllabus attached in Annexure-2</li>
+    <li>Odd-semester BoS: result analysis, with graphs and the round seal</li>
+    <li>Even-semester BoS: feedback from students, alumni, teachers and employers</li>
+    <li>An Action Taken Report, signed and sealed</li>
+    <li>Even-semester BoS: the feedback graphs are signed and sealed</li>
+  </ul>
+  <p class="foot">
+    Odd or even semester is worked out from the meeting date: a meeting held
+    July&ndash;December reviews the odd semester, January&ndash;June the even one.
+    Rules that do not apply to this semester are marked as such rather than failed.
+  </p>
+</div>
+
+{% endblock %}

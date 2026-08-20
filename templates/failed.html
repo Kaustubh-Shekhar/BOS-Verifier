@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Could not check {{ job.filename }}{% endblock %}
+{% block body %}
+
+<div class="card">
+  <h2>Could not check {{ job.filename }}</h2>
+  <div class="err">{{ job.error }}</div>
+  <p class="lede">
+    If the file is a scanned PDF and Tesseract is installed, this is a bug
+    worth reporting along with the message above.
+  </p>
+  <p><a class="plain" href="{{ url_for('index') }}">Try another file</a></p>
+</div>
+
+{% endblock %}

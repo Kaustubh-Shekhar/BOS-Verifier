@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Report — {{ job.filename }}{% endblock %}
+{% block body %}
+
+{% set label = {"pass": "Passable", "review": "Passable, with points to confirm", "fail": "Not passable yet"} %}
+{% set blurb = {
+  "pass": "Every applicable check passed.",
+  "review": "Nothing failed, but some items rest on evidence a scan cannot settle on its own. Please confirm the points listed below by eye.",
+  "fail": "One or more requirements are not met. Fix the items marked FAIL before submitting."
+} %}
+
+<div class="verdict {{ verdict }}">
+  <h2>{{ label[verdict] }}</h2>
+  <p>{{ blurb[verdict] }}</p>
+</div>
+
+<div class="card">
+  <div class="meta">
+    <div>File<span>{{ job.filename }}</span></div>
+    <div>Pages<span>{{ doc.pages|length }}</span></div>
+    <div>Meeting date<span>{{ doc.meeting_date.strftime("%d %B %Y") if doc.meeting_date else "not found" }}</span></div>
+    <div>Semester<span>{{ doc.semester|capitalize if doc.semester else "unknown" }}</span></div>
+    <div>Result<span>{{ counts["pass"] }} passed · {{ counts["review"] }} to confirm · {{ counts["fail"] }} failed</span></div>
+  </div>
+  {% if not doc.meeting_date %}
+  <div class="warn" style="margin-top:16px">
+    The meeting date could not be read, so the semester is unknown and the
+    semester-specific rules were skipped. Check the date on page 1.
+  </div>
+  {% endif %}
+</div>
+
+<h2>Checklist</h2>
+{% for c in checks %}
+<div class="check {{ 'na' if c.status == 'n/a' else c.status }}">
+  <div class="top">
+    <h3>{{ c.title }}</h3>
+    <span class="tag {{ 'na' if c.status == 'n/a' else c.status }}">
+      {{ {"pass":"Pass","review":"Confirm","fail":"Fail","n/a":"N/A"}[c.status] }}
+    </span>
+  </div>
+  <p class="detail">{{ c.detail }}</p>
+  {% if c.notes %}
+  <ul class="notes">
+    {% for n in c.notes %}<li>{{ n }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <p class="req">Requirement: {{ c.requirement }}</p>
+</div>
+{% endfor %}
+
+<div class="card">
+  <h2>Page by page</h2>
+  <table class="pages">
+    <tr>
+      <th>Page</th><th>What it is</th><th>Seal</th><th>Letterhead</th>
+      <th>HOD</th><th>Principal</th>
+    </tr>
+    {% for p in doc.pages %}
+    <tr>
+      <td class="num">{{ p.number }}{% if p.rotation %} <span class="pill">rotated {{ p.rotation }}&deg;</span>{% endif %}</td>
+      <td>
+        {% for k in p.kinds|sort %}<span class="pill">{{ k.replace("_", " ") }}</span> {% endfor %}
+        {% if not p.kinds %}<span class="pill">continuation</span>{% endif %}
+      </td>
+      <td>
+        {% if p.seal_state == "present" %}<span class="yes">yes</span>
+        {% elif p.seal_state == "probable" %}<span class="maybe">faint</span>
+        {% else %}<span class="no">none</span>{% endif %}
+      </td>
+      <td>{% if p.letterhead.found %}<span class="yes">yes</span>{% else %}&mdash;{% endif %}</td>
+      <td>{% if p.authority.hod.found %}<span class="{{ 'yes' if p.authority.hod.strength == 'strong' else 'maybe' }}">yes</span>{% else %}&mdash;{% endif %}</td>
+      <td>{% if p.authority.principal.found %}<span class="{{ 'yes' if p.authority.principal.strength == 'strong' else 'maybe' }}">yes</span>{% else %}&mdash;{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="foot">
+    An amber "yes" means the mark was found but not read cleanly &mdash; usually a
+    stamp struck through by a signature. Seals are circled on the page images below.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Pages, with seals circled</h2>
+  <div class="thumbs">
+    {% for p in doc.pages %}
+    <figure>
+      {% if p.thumbnail %}<img src="{{ p.thumbnail }}" alt="Page {{ p.number }}">{% endif %}
+      <figcaption>
+        Page {{ p.number }} &mdash;
+        {% if p.seal_state == "present" %}seal found
+        {% elif p.seal_state == "probable" %}faint seal
+        {% else %}no seal{% endif %}
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</div>
+
+<p class="foot">
+  Checked in {{ "%.0f"|format(doc.elapsed) }} seconds ·
+  <a class="plain" href="{{ url_for('report_json', job_id=job.id) }}">Download as JSON</a> ·
+  <a class="plain" href="{{ url_for('index') }}">Check another BoS</a>
+</p>
+
+{% endblock %}
