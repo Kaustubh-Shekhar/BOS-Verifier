@@ -248,6 +248,11 @@ def find_signatures(bgr, page_text, dpi=150, ocr_scale=1.0, exclude=()):
         # unlike a solid blot or a block of print the OCR happened to miss.
         if not (0.05 < fill < 0.62):
             continue
+        # The rule a signature is written on top of survives the same way a
+        # signature does - the OCR cannot read it either - but it is a hairline
+        # running the width of the column, not handwriting.
+        if min(bw, bh) < 0.07 * dpi or max(bw, bh) > 12 * max(1, min(bw, bh)):
+            continue
         out.append(dict(x=int(x), y=int(y), w=int(bw), h=int(bh),
                         area=int(area), fill=round(float(fill), 3)))
     out.sort(key=lambda s: -s["area"])
@@ -265,7 +270,7 @@ def page_authority(bgr, page_text, seals, marks, dpi=150, ocr_scale=1.0):
         principal=principal,
         stamps=blocks,
         signatures=len(signatures),
-        signature_boxes=signatures[:8],
+        signature_boxes=signatures,
         seal=bool(seals),
         seal_confirmed=any(s["confidence"] == "confirmed" for s in seals),
         seals=seals,

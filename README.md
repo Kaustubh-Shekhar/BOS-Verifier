@@ -6,6 +6,16 @@ and what still needs a human eye.
 
 ## Running it
 
+On Windows, **double-click `Start BoS Verifier.bat`**. It picks the Python
+installation that has the packages, starts the app, and opens your browser at
+it. Leave the black window open while you work; closing it stops the app.
+
+From a terminal, either of these does the same:
+
+```bash
+python launcher.py
+```
+
 ```bash
 pip install -r requirements.txt
 python app.py
@@ -36,13 +46,15 @@ signatures. The page shows progress while it works.
 | 1 | Letterhead on page 1 | The printed crest, rule or address footer — not just a typed heading |
 | 2 | Round seal on every page | First page to last |
 | 3 | Minutes signed off where they end | Principal and HOD, stamp and seal |
-| 4 | Attendance sheet on letterhead | |
-| 5 | Annexure-1 percentage modification | "Nil" is fine; needs Principal and HOD sign and seal |
-| 6 | Annexure-2 covers Annexure-1 | Every course listed as modified must have its syllabus attached |
-| 7 | Odd semester: result analysis | With graphs and the round seal |
-| 8 | Even semester: stakeholder feedback | Students, alumni, teachers and employers |
-| 9 | Action Taken Report | Signed and sealed |
-| 10 | Even semester: feedback graphs signed | HOD and Principal, with seal |
+| 4 | Agenda items covered in the minutes | Every item listed on the agenda must be minuted, and what is recorded under each must be that item |
+| 5 | Attendance sheet on letterhead | |
+| 6 | Nobody absent has signed | A member marked "(Absent)" must have no signature against their name |
+| 7 | Annexure-1 percentage modification | "Nil" is fine; needs Principal and HOD sign and seal |
+| 8 | Annexure-2 covers Annexure-1 | Every course listed as modified must have its syllabus attached |
+| 9 | Odd semester: result analysis | With graphs and the round seal |
+| 10 | Even semester: stakeholder feedback | Students, alumni, teachers and employers |
+| 11 | Action Taken Report | Signed and sealed |
+| 12 | Even semester: feedback graphs signed | HOD and Principal, with seal |
 
 Odd or even semester comes from the meeting date: a meeting held July–December
 reviews the odd semester, January–June the even one. Rules that do not apply
@@ -65,6 +77,10 @@ through, so where the evidence is genuinely ambiguous the app says so instead
 of guessing. The overall verdict is "not passable" if anything failed,
 "passable, with points to confirm" if anything needs an eye, otherwise
 "passable".
+
+The report opens with a **summary table** of all twelve checks — result,
+finding and pages — so the whole picture is visible without scrolling. Each
+row links to the full detail further down.
 
 ## How the hard parts work
 
@@ -96,6 +112,27 @@ where the text survived and colour blocks where it did not. Where a role
 cannot be read, the app says which weaker cue it relied on rather than
 claiming a clean pass. Signatures are found as ink the OCR could *not* read.
 
+**Agenda against minutes.** The agenda is listed at the front, in one of two
+layouts (numbered items under a heading, or one "Agenda N" marker per item),
+and worked through later under the same numbers. OCR damages the word itself
+often — "Agenda no 3" comes back as "Acenda no 3", and on one sample page the
+label is lost where the scan clipped the margin — so an item is looked for
+twice: by its number, and by its subject wording anywhere in the minutes.
+Wording is compared with light stemming, and procedural items (the welcome,
+the vote of thanks, "any other business") are exempt from the comparison
+because minutes always record those in words of their own. Only an item that
+is not minuted at all fails; a paraphrase is flagged to read, not failed.
+
+**Absent members who signed.** Names marked "(Absent)" at the front are
+cross-checked against the attendance sheet. This needs both halves of the
+document: the names from the text, and whether there is handwriting in that
+person's row, which is an image question. Two things make it awkward — the
+ruled line each member signs on survives exactly as a signature does, so the
+lines are stripped first; and a signature with a tall flourish reaches up into
+the row above, which on the sample sheet is precisely what happens over the
+absent industry representative's empty line. A mark whose weight sits low in
+the row is therefore reported as needing a look rather than as a signature.
+
 **Sideways pages.** Feedback charts are often bound sideways. Tesseract's own
 orientation detector is unreliable on them — on the sample pages it reported
 confidences as low as 0.12 and guessed the wrong script — so orientation is
@@ -123,14 +160,18 @@ chosen by OCR'ing each quarter-turn and keeping whichever reads best.
 app.py                 Flask app: upload, progress, report
 bosverify/
   document.py          Runs every detector over a PDF, once per page
-  rules.py             The ten checks
+  rules.py             The twelve checks
   seals.py             Round seal detection
   authority.py         HOD / Principal stamps and signatures
   letterhead.py        Printed letterhead vs a typed heading
   structure.py         Page kinds, semester, courses, charts
+  agenda.py            The agenda, and whether the minutes cover it
+  attendance.py        Absent members versus signatures
   ocr.py               OCR with orientation recovery
   marks.py             Coloured-ink blocks
   imaging.py           Shared image helpers
   pdfio.py             Page rendering
+launcher.py            Starts the app and opens the browser
+Start BoS Verifier.bat Double-click launcher for Windows
 templates/, static/    The web pages
 ```

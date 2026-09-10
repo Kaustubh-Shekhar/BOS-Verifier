@@ -354,11 +354,92 @@ def check_even_semester_graphs_signed(doc):
                  "endorsement.", nums, notes)
 
 
+
+
+def check_agenda_minuted(doc):
+    c = Check("agenda_minuted", "Agenda items covered in the minutes",
+              "Every item on the agenda must be minuted, and what is recorded "
+              "under each must be that item.")
+    items = doc.agenda_items
+    if not items:
+        return c.set(REVIEW, "No agenda list could be read from the front of "
+                     "the document, so the minutes could not be checked against "
+                     "it. Confirm the agenda is present and legible.")
+
+    missing = [i for i in items if i["verdict"] in ("missing", "empty")]
+    divergent = [i for i in items if i["verdict"] == "divergent"]
+    soft = [i for i in items if i["verdict"] in ("loose", "unlabelled")]
+    pages = sorted({i["page"] for i in items if i["page"]})
+
+    if missing:
+        detail = "; ".join(
+            f"item {i['number']} ({i['subject'][:60]}) "
+            + ("has a heading but nothing minuted under it"
+               if i["verdict"] == "empty" else "is not minuted anywhere")
+            for i in missing)
+        return c.set(FAIL, f"{len(missing)} of {len(items)} agenda items listed "
+                     f"on page {doc.agenda_page} are not covered: {detail}.",
+                     pages or [doc.agenda_page])
+
+    notes = [f"item {i['number']}: {i['note']}" for i in divergent + soft if i["note"]]
+    if divergent:
+        return c.set(REVIEW, f"All {len(items)} agenda items are minuted, but "
+                     f"{len(divergent)} record a subject that does not read like "
+                     "the agenda item - check these pages.", pages, notes)
+    if soft:
+        return c.set(REVIEW, f"All {len(items)} agenda items listed on page "
+                     f"{doc.agenda_page} are minuted.", pages, notes)
+    return c.set(PASS, f"All {len(items)} agenda items listed on page "
+                 f"{doc.agenda_page} are minuted, and each discussion matches "
+                 "its item.", pages)
+
+
+def check_absent_not_signed(doc):
+    c = Check("absent_not_signed", "Absent members have not signed",
+              "A member recorded as absent must not have a signature against "
+              "their name on the attendance sheet.")
+    if not doc.absentees:
+        return c.set(NA, "No member is marked absent in this BoS, so there is "
+                     "nothing to cross-check.")
+
+    names = _list_words([a["name"] for a in doc.absentees])
+    sheets = [p.number for p in doc.pages_of("attendance")]
+    if not sheets:
+        return c.set(REVIEW, f"{names} are marked absent, but no attendance "
+                     "sheet was found to check their signatures against.")
+
+    unplaced = [a["name"] for a in doc.absentees if not a["sheets"]]
+    certain = [f for f in doc.absent_signatures if f["certain"]]
+    unsure = [f for f in doc.absent_signatures if not f["certain"]]
+
+    if certain:
+        detail = "; ".join(f"{f['name']} on page {f['page']}" for f in certain)
+        return c.set(FAIL, "A signature appears against a member recorded as "
+                     f"absent: {detail}. Either the attendance sheet or the "
+                     "absentee list is wrong.",
+                     sorted({f["page"] for f in certain}))
+
+    notes = [f"{f['name']}, page {f['page']}: a mark sits in this row, but low "
+             "in it - most likely the top of the signature from the row below"
+             for f in unsure]
+    notes += [f"{n} could not be found on the attendance sheet, so their row "
+              "was not checked" for n in unplaced]
+    if notes:
+        return c.set(REVIEW, f"{len(doc.absentees)} member(s) are marked absent "
+                     f"({names}); no clear signature was found against any of "
+                     "them, but some rows need a glance.", sheets, notes)
+    return c.set(PASS, f"{len(doc.absentees)} member(s) marked absent ({names}) "
+                 f"have no signature against them on the attendance sheet "
+                 f"({_list(sheets)}).", sheets)
+
+
 ALL_RULES = [
     check_letterhead_first_page,
     check_seal_every_page,
     check_minutes_signed,
+    check_agenda_minuted,
     check_attendance_letterhead,
+    check_absent_not_signed,
     check_annexure1,
     check_annexure2,
     check_odd_semester_results,

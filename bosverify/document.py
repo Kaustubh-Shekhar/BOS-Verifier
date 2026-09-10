@@ -13,6 +13,8 @@ import cv2
 import numpy as np
 import pymupdf
 
+from . import agenda as agenda_mod
+from . import attendance as attendance_mod
 from . import letterhead as letterhead_mod
 from . import structure
 from .authority import page_authority
@@ -40,6 +42,7 @@ class Page:
         self.page_no = None
         self.thumbnail = None
         self.readable_words = 0
+        self.signatures = []
 
     @property
     def seal_state(self):
@@ -58,6 +61,10 @@ class Document:
         self.semester = None
         self.elapsed = 0.0
         self.checks = []
+        self.agenda_page = None
+        self.agenda_items = []
+        self.absentees = []
+        self.absent_signatures = []
 
     @property
     def full_text(self):
@@ -135,6 +142,20 @@ def analyse(path, name=None, progress=None):
             page.page_no = structure.page_numbering(page_text)
             page.chart = structure.has_chart(work, dpi=WORK_DPI)
             page.readable_words = len(page_text.confident_words())
+            page.signatures = page.authority["signature_boxes"]
+
+            # The absentee list is at the front and the attendance sheet well
+            # behind it, so by the time a sheet is reached the names marked
+            # absent are already known.  Scanning here keeps the page image in
+            # hand rather than holding every page in memory for a later pass.
+            for person in attendance_mod.absent_members(page):
+                if not any(a["surname"] == person["surname"]
+                           for a in document.absentees):
+                    document.absentees.append(person)
+            if "attendance" in page.kinds:
+                document.absent_signatures.extend(attendance_mod.scan_sheet(
+                    work, page, page_text, document.absentees, ocr_scale,
+                    dpi=WORK_DPI))
             page.thumbnail = _thumbnail(work, page)
             page._page_text = page_text
             document.pages.append(page)
@@ -142,6 +163,10 @@ def analyse(path, name=None, progress=None):
     document.meeting_date = structure.meeting_date(
         [p._page_text for p in document.pages])
     document.semester = structure.semester_of(document.meeting_date)
+    # These two need the whole document: the agenda is listed at the front and
+    # worked through later, and the absentee list is nowhere near the
+    # attendance sheet it contradicts.
+    document.agenda_page, document.agenda_items = agenda_mod.review(document)
     document.elapsed = time.time() - started
     if progress:
         progress(total, total)

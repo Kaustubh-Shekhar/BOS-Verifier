@@ -30,9 +30,34 @@
   {% endif %}
 </div>
 
-<h2>Checklist</h2>
+<div class="card">
+  <h2>Summary</h2>
+  <table class="summary">
+    <tr><th>#</th><th>Check</th><th>Result</th><th>Finding</th><th>Pages</th></tr>
+    {% for c in checks %}
+    <tr>
+      <td class="num">{{ loop.index }}</td>
+      <td><a class="plain" href="#check-{{ c.key }}">{{ c.title }}</a></td>
+      <td>
+        <span class="tag {{ 'na' if c.status == 'n/a' else c.status }}">
+          {{ {"pass":"Pass","review":"Confirm","fail":"Fail","n/a":"N/A"}[c.status] }}
+        </span>
+      </td>
+      <td class="finding">{{ c.detail }}</td>
+      <td class="num">{% if c.pages %}{{ c.pages|join(", ") }}{% else %}&mdash;{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="foot">
+    {{ counts["fail"] }} failed &middot; {{ counts["review"] }} to confirm &middot;
+    {{ counts["pass"] }} passed &middot; {{ counts["n/a"] }} not applicable.
+    Click a check to jump to the detail below.
+  </p>
+</div>
+
+<h2>Checklist in detail</h2>
 {% for c in checks %}
-<div class="check {{ 'na' if c.status == 'n/a' else c.status }}">
+<div class="check {{ 'na' if c.status == 'n/a' else c.status }}" id="check-{{ c.key }}">
   <div class="top">
     <h3>{{ c.title }}</h3>
     <span class="tag {{ 'na' if c.status == 'n/a' else c.status }}">
