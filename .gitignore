@@ -1,1 +1,4 @@
 .venv
+# Word docs are shared separately, not kept in the repo
+BoS-Verifier-Handover-Guide.docx
+BoS-Verifier-Workflow.docx
