@@ -1,0 +1,69 @@
+{% set WORD = {"pass": "Passable", "review": "Passable, with points to confirm", "fail": "Not passable"} %}
+<div class="summary-report">
+  <div class="summary-head {{ report.verdict }}">
+    <div class="summary-file">{{ job.filename }}</div>
+    <div class="summary-verdict">
+      {{ WORD[report.verdict] }}{% if report.problems %} &mdash; {{ report.problems }} problem{{ 's' if report.problems != 1 }} found{% endif %}
+    </div>
+    <div class="muted small">
+      {{ doc.pages|length }} pages{% if doc.meeting_date %} · meeting of {{ doc.meeting_date.strftime("%d %B %Y") }}{% endif %}{% if doc.semester %} · {{ doc.semester }} semester{% endif %}
+      · generated {{ generated.strftime("%d %b %Y, %H:%M") }}
+      {% if report.manual_passes or report.manual_fails %}
+      · {{ report.manual_passes + report.manual_fails }} item{{ 's' if report.manual_passes + report.manual_fails != 1 }} decided on review
+      {% endif %}
+    </div>
+  </div>
+
+  {% if report.pages %}
+  <h3>Pages with problems</h3>
+  <ol class="page-issues">
+    {% for entry in report.pages %}
+    <li>
+      <div class="page-no">Page {{ entry.page }}</div>
+      <ul>
+        {% for issue in entry.issues %}
+        <li>
+          {{ issue.issue }}
+          <span class="muted small">&mdash; {{ issue.check }}{% if issue.manual %}, failed on review{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+
+  {% if report.general %}
+  <h3>Problems with the document as a whole</h3>
+  <ul class="issues">
+    {% for issue in report.general %}
+    <li>
+      {{ issue.issue }}
+      <span class="muted small">&mdash; {{ issue.check }}{% if issue.manual %}, failed on review{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if not report.problems %}
+  <p class="all-clear">No problems found{% if report.confirm %} so far{% endif %}.</p>
+  {% endif %}
+
+  {% if report.confirm %}
+  <h3>Still to confirm by eye ({{ report.confirm|length }})</h3>
+  <p class="muted small" style="margin-top:0">
+    Not problems yet. Mark each one Pass or Fail in the checklist above and generate the report again.
+  </p>
+  <ul class="issues confirm">
+    {% for entry in report.confirm %}
+    <li>{% if entry.page %}<strong>Page {{ entry.page }}:</strong> {% endif %}{{ entry.label }}
+      <span class="muted small">&mdash; {{ entry.check }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p class="muted small summary-foot">
+    Checks passed: {{ report.passed|length }}.
+    Not applicable to this BoS: {{ report.not_applicable|length }}.
+  </p>
+</div>

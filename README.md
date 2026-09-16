@@ -1,8 +1,10 @@
 # BoS Verifier
 
-A small web app for the IQAC cell. Upload a scanned Board of Studies PDF and
-it checks it against the UGC checklist, reporting what passed, what failed,
-and what still needs a human eye.
+A small web app for the IQAC cell. Upload one or more scanned Board of Studies
+PDFs and it checks each against the UGC checklist, reporting what passed, what
+failed, and what still needs a human eye. The person checking can then pass or
+fail each of those items page by page, and generate a plain report of the
+failing pages and what is wrong with each.
 
 ## Running it
 
@@ -21,7 +23,9 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Then open <http://127.0.0.1:5000> and upload the BoS PDF.
+Then open <http://127.0.0.1:5000> and upload the BoS PDF. To check several
+at once, pick several files (hold Ctrl or Shift); they are checked side by side,
+up to three at a time, and a progress page links to each report as it finishes.
 
 Tesseract OCR must be installed as well — a BoS is a stack of scans, so every
 text-based check depends on it.
@@ -48,7 +52,7 @@ signatures. The page shows progress while it works.
 | 3 | Minutes signed off where they end | Principal and HOD, stamp and seal |
 | 4 | Agenda items covered in the minutes | Every item listed on the agenda must be minuted, and what is recorded under each must be that item |
 | 5 | Attendance sheet on letterhead | |
-| 6 | Nobody absent has signed | A member marked "(Absent)" must have no signature against their name |
+| 6 | Attendance matches who was present | There must be a page recording who was present and absent. A member marked absent must not have signed the attendance sheet; a member listed as present must have |
 | 7 | Annexure-1 percentage modification | "Nil" is fine; needs Principal and HOD sign and seal |
 | 8 | Annexure-2 covers Annexure-1 | Every course listed as modified must have its syllabus attached |
 | 9 | Odd semester: result analysis | With graphs and the round seal |
@@ -78,9 +82,24 @@ of guessing. The overall verdict is "not passable" if anything failed,
 "passable, with points to confirm" if anything needs an eye, otherwise
 "passable".
 
-The report opens with a **summary table** of all twelve checks — result,
-finding and pages — so the whole picture is visible without scrolling. Each
-row links to the full detail further down.
+## The report
+
+The report opens with the verdict and a **page-by-page table**: what each page
+is, and whether it carries the seal, the letterhead, and the HOD's and
+Principal's endorsement. "View" opens any page at a readable size.
+
+Then comes the **checklist**. Every check marked Confirm lists what to look at,
+one item per page, each with **Pass** and **Fail** buttons and a link to the
+page. The check's result follows from those decisions: any item failed fails
+it, all items passed passes it. Clicking a chosen button again clears it. The
+verdict and tally at the top update as you go. The attendance check also shows
+every member on the roll, how they were recorded, and what the sheet shows.
+
+Below the checklist, **Generate report** produces a point-by-point list of the
+failing pages and what is wrong with each, including anything failed by hand,
+followed by anything still to confirm. It can be copied as text, downloaded as
+a .txt file, or printed / saved as a PDF. Decisions are kept while the app runs;
+generate again after changing them.
 
 ## How the hard parts work
 
@@ -123,15 +142,31 @@ the vote of thanks, "any other business") are exempt from the comparison
 because minutes always record those in words of their own. Only an item that
 is not minuted at all fails; a paraphrase is flagged to read, not failed.
 
-**Absent members who signed.** Names marked "(Absent)" at the front are
-cross-checked against the attendance sheet. This needs both halves of the
-document: the names from the text, and whether there is handwriting in that
-person's row, which is an image question. Two things make it awkward — the
-ruled line each member signs on survives exactly as a signature does, so the
-lines are stripped first; and a signature with a tall flourish reaches up into
-the row above, which on the sample sheet is precisely what happens over the
-absent industry representative's empty line. A mark whose weight sits low in
-the row is therefore reported as needing a look rather than as a signature.
+**Attendance against the roll.** The page recording who was present is found
+near the front: it says "present", "absent" or "attendees", and names more
+members than any other such page. Each member is then found on the attendance
+sheet by name - surname first, with first names and initials settling which of
+several same-surname members it is (the sample sheet has three Patels) - and
+their row is examined for handwriting, since a signature is ink the OCR could
+not read. Three things had to be got right:
+
+- the ruled line a member signs on survives OCR exactly as a signature does, so
+  rules are removed first, and found on the untouched page, because masking
+  the recognised words cuts every rule a name sits on;
+- sheets come in two layouts - a signature line per name, or a table row - and
+  the signing space is above the line in one and the row itself in the other.
+  Using the wrong shape put the alumnus's tall signature into the absent
+  industry representative's empty row on the sample sheet;
+- a slightly skewed scan breaks a one-pixel table rule into pieces too short to
+  recognise unless the line is thickened first.
+
+On the two sample documents this separates cleanly: of 28 members across four
+sheets, every signed row reads at least 2.1% ink and every unsigned row at most
+0.8%. A member present but clearly unsigned, or absent but clearly signed,
+fails; a reading in between, or a present member not found on the sheet, is
+listed to confirm. On the Statistics BoS it finds two members listed as
+attendees who did not sign - which agrees with the minutes' own count of 13
+of 15 members present.
 
 **Sideways pages.** Feedback charts are often bound sideways. Tesseract's own
 orientation detector is unreliable on them — on the sample pages it reported
@@ -151,13 +186,17 @@ chosen by OCR'ing each quarter-turn and keeping whichever reads best.
   pie chart and no seal.
 - **One page of a correct document may be flagged for confirmation.** Seals
   stamped half over a dark chart score below a confident pass by design.
-- Jobs live in memory, so a restart loses past reports. Download the JSON if
-  you need to keep one.
+- Jobs and the decisions made on them live in memory, so closing the app loses
+  past reports. Download the text report or the JSON if you need to keep one.
+- **The attendance thresholds come from two documents.** They separate the
+  sample sheets with a clear margin, but a sheet in a new layout or a very faint
+  scan may need them adjusting (SIGNED_INK and UNSIGNED_INK in
+  bosverify/attendance.py).
 
 ## Layout
 
 ```
-app.py                 Flask app: upload, progress, report
+app.py                 Flask app: uploads, parallel checking, report, decisions
 bosverify/
   document.py          Runs every detector over a PDF, once per page
   rules.py             The twelve checks
@@ -166,12 +205,13 @@ bosverify/
   letterhead.py        Printed letterhead vs a typed heading
   structure.py         Page kinds, semester, courses, charts
   agenda.py            The agenda, and whether the minutes cover it
-  attendance.py        Absent members versus signatures
+  attendance.py        The present / absent roll versus signatures
   ocr.py               OCR with orientation recovery
   marks.py             Coloured-ink blocks
   imaging.py           Shared image helpers
   pdfio.py             Page rendering
 launcher.py            Starts the app and opens the browser
 Start BoS Verifier.bat Double-click launcher for Windows
-templates/, static/    The web pages
+templates/             Upload, progress, batch, report and generated-report pages
+static/                Styling
 ```

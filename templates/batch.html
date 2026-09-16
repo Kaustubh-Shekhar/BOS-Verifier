@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Checking {{ jobs|length }} documents{% endblock %}
+{% block body %}
+
+<div class="card">
+  <h2>Checking {{ jobs|length }} documents</h2>
+  <p class="lede" id="msg">
+    Up to {{ workers }} are checked at the same time; the rest wait their turn.
+    Open any report as soon as it is ready.
+  </p>
+  <table class="batch">
+    <tr><th>File</th><th>Progress</th><th>Result</th><th></th></tr>
+    {% for job in jobs %}
+    <tr id="job-{{ job.id }}">
+      <td class="file">{{ job.filename }}</td>
+      <td class="prog">
+        <div class="bar small"><div></div></div>
+        <span class="state">Waiting to start</span>
+      </td>
+      <td class="result">&mdash;</td>
+      <td class="open"></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="foot" id="overall"></p>
+</div>
+
+<script>
+  const batchId = {{ batch_id|tojson }};
+  const VERDICT = {pass: ["Passable", "pass"],
+                   review: ["Points to confirm", "review"],
+                   fail: ["Not passable", "fail"]};
+
+  async function poll() {
+    let finished = 0, total = 0;
+    try {
+      const r = await fetch("/batch/" + batchId + "/status");
+      const data = await r.json();
+      total = data.jobs.length;
+      data.jobs.forEach(j => {
+        const row = document.getElementById("job-" + j.id);
+        const fill = row.querySelector(".bar div");
+        const state = row.querySelector(".state");
+        const result = row.querySelector(".result");
+        const open = row.querySelector(".open");
+        if (j.state === "queued") {
+          state.textContent = "Waiting to start";
+        } else if (j.state === "running") {
+          const pct = j.total ? Math.round(j.done / j.total * 100) : 0;
+          fill.style.width = pct + "%";
+          state.textContent = j.total ? "Page " + Math.min(j.done + 1, j.total)
+                                        + " of " + j.total : "Starting";
+        } else if (j.state === "done") {
+          finished++;
+          fill.style.width = "100%";
+          state.textContent = "Done";
+          const v = VERDICT[j.verdict];
+          result.innerHTML = '<span class="tag ' + v[1] + '">' + v[0] + '</span>';
+          open.innerHTML = '<a class="plain" href="' + j.report + '" target="_blank">Open report</a>';
+        } else if (j.state === "failed") {
+          finished++;
+          state.textContent = "Could not be checked";
+          result.innerHTML = '<span class="tag fail">Error</span>';
+          open.innerHTML = '<a class="plain" href="' + j.report + '" target="_blank">See why</a>';
+        }
+      });
+      document.getElementById("overall").textContent =
+        finished + " of " + total + " finished.";
+    } catch (e) {
+      document.getElementById("overall").textContent = "Lost contact with the app — retrying…";
+    }
+    if (!total || finished < total) setTimeout(poll, 1500);
+  }
+  poll();
+</script>
+
+{% endblock %}

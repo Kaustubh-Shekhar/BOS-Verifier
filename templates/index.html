@@ -13,16 +13,21 @@
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
 <div class="card">
-  <h2>Check a Board of Studies</h2>
+  <h2>Check Board of Studies documents</h2>
   <p class="lede">
-    Upload the scanned BoS PDF. Checking takes roughly five seconds a page,
-    because every page is read and examined for seals, stamps and signatures.
+    Upload one BoS PDF, or several at once. Each is checked separately and up to
+    {{ workers }} are checked at the same time. Checking takes roughly five
+    seconds a page, because every page is read and examined for seals, stamps
+    and signatures.
   </p>
   <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
     <div class="drop">
-      <input type="file" name="bos" accept="application/pdf,.pdf" required>
-      <div><button type="submit">Check this BoS</button></div>
-      <p class="foot" style="margin-bottom:0">PDF only, up to {{ max_mb }} MB.</p>
+      <input type="file" name="bos" id="bos" accept="application/pdf,.pdf" multiple required>
+      <ul class="chosen" id="chosen" hidden></ul>
+      <div><button type="submit" id="go">Check this BoS</button></div>
+      <p class="foot" style="margin-bottom:0">
+        PDF only. Hold Ctrl (or Shift) to pick several files. Up to {{ max_mb }} MB in total.
+      </p>
     </div>
   </form>
 </div>
@@ -35,7 +40,8 @@
     <li>Where the minutes end, the Principal and HOD have signed and sealed</li>
     <li>Every agenda item is minuted, and matches what was listed</li>
     <li>The attendance sheet is on the letterhead</li>
-    <li>Nobody recorded as absent has a signature against their name</li>
+    <li>There is a page recording who was present and absent; absent members have
+        not signed the attendance sheet and present members have</li>
     <li>Annexure-1 states the percentage modified (or Nil), signed and sealed</li>
     <li>Every course in Annexure-1 has its syllabus attached in Annexure-2</li>
     <li>Odd-semester BoS: result analysis, with graphs and the round seal</li>
@@ -49,5 +55,23 @@
     Rules that do not apply to this semester are marked as such rather than failed.
   </p>
 </div>
+
+<script>
+  const input = document.getElementById("bos");
+  const chosen = document.getElementById("chosen");
+  const go = document.getElementById("go");
+  input.addEventListener("change", () => {
+    const files = Array.from(input.files);
+    chosen.innerHTML = "";
+    files.forEach(f => {
+      const li = document.createElement("li");
+      li.textContent = f.name + " (" + (f.size / 1048576).toFixed(1) + " MB)";
+      chosen.appendChild(li);
+    });
+    chosen.hidden = files.length < 2;
+    go.textContent = files.length > 1 ? "Check these " + files.length + " files"
+                                      : "Check this BoS";
+  });
+</script>
 
 {% endblock %}

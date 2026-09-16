@@ -25,6 +25,8 @@ from .seals import find_seals
 WORK_DPI = 150
 OCR_DPI = 220
 THUMB_WIDTH = 340
+# Wide enough to read a signature or a stamp when confirming a page by eye.
+VIEW_WIDTH = 1100
 
 
 class Page:
@@ -43,6 +45,8 @@ class Page:
         self.thumbnail = None
         self.readable_words = 0
         self.signatures = []
+        self.image = None       # a readable-size JPEG, for confirming by eye
+        self._sheet = None
 
     @property
     def seal_state(self):
@@ -63,8 +67,7 @@ class Document:
         self.checks = []
         self.agenda_page = None
         self.agenda_items = []
-        self.absentees = []
-        self.absent_signatures = []
+        self.roll = dict(roll_page=None, sheets=[], members=[])
 
     @property
     def full_text(self):
@@ -93,6 +96,15 @@ def _rotate(bgr, degrees):
     if degrees == 270:
         return cv2.rotate(bgr, cv2.ROTATE_90_COUNTERCLOCKWISE)
     return bgr
+
+
+def _page_image(bgr):
+    """The page at a readable size, kept so a person can confirm by eye after
+    the uploaded PDF itself has been deleted."""
+    scale = min(1.0, VIEW_WIDTH / float(bgr.shape[1]))
+    view = cv2.resize(bgr, (int(bgr.shape[1] * scale), int(bgr.shape[0] * scale)))
+    ok, buf = cv2.imencode(".jpg", view, [cv2.IMWRITE_JPEG_QUALITY, 72])
+    return buf.tobytes() if ok else None
 
 
 def _thumbnail(bgr, page):
@@ -144,19 +156,14 @@ def analyse(path, name=None, progress=None):
             page.readable_words = len(page_text.confident_words())
             page.signatures = page.authority["signature_boxes"]
 
-            # The absentee list is at the front and the attendance sheet well
-            # behind it, so by the time a sheet is reached the names marked
-            # absent are already known.  Scanning here keeps the page image in
-            # hand rather than holding every page in memory for a later pass.
-            for person in attendance_mod.absent_members(page):
-                if not any(a["surname"] == person["surname"]
-                           for a in document.absentees):
-                    document.absentees.append(person)
+            # An attendance sheet is measured while its image is in hand, but
+            # judged only once the whole document is read: the roll it is
+            # compared with could in principle come later.
             if "attendance" in page.kinds:
-                document.absent_signatures.extend(attendance_mod.scan_sheet(
-                    work, page, page_text, document.absentees, ocr_scale,
-                    dpi=WORK_DPI))
+                page._sheet = attendance_mod.measure_sheet(
+                    work, page_text, ocr_scale, dpi=WORK_DPI)
             page.thumbnail = _thumbnail(work, page)
+            page.image = _page_image(work)
             page._page_text = page_text
             document.pages.append(page)
 
@@ -167,6 +174,11 @@ def analyse(path, name=None, progress=None):
     # worked through later, and the absentee list is nowhere near the
     # attendance sheet it contradicts.
     document.agenda_page, document.agenda_items = agenda_mod.review(document)
+    document.roll = attendance_mod.review(document)
+    if document.roll["roll_page"]:
+        document.pages[document.roll["roll_page"] - 1].kinds.add("members_list")
+    for page in document.pages:
+        page._sheet = None  # the measurement masks are no longer needed
     document.elapsed = time.time() - started
     if progress:
         progress(total, total)

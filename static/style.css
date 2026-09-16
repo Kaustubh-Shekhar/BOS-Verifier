@@ -151,3 +151,91 @@ table.pages td.num { font-variant-numeric: tabular-nums; color: var(--muted); }
 a.plain { color: var(--accent); }
 .warn { background: var(--review-bg); border: 1px solid #f0d9a8; color: var(--review); padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 14.5px; }
 .err { background: var(--fail-bg); border: 1px solid #f3c2be; color: var(--fail); padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 14.5px; }
+
+/* --- multiple files ---------------------------------------------------- */
+.chosen { list-style: none; padding: 0; margin: 4px auto 14px; max-width: 520px;
+  text-align: left; font-size: 14px; color: var(--muted); }
+.chosen li { padding: 4px 10px; border-bottom: 1px solid var(--line); }
+table.batch { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.batch th, table.batch td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.batch th { color: var(--muted); font-weight: 600; font-size: 13px; }
+table.batch td.file { font-weight: 600; word-break: break-all; }
+table.batch td.prog { width: 34%; }
+.bar.small { height: 7px; margin: 0 0 4px; }
+table.batch .state { font-size: 12.5px; color: var(--muted); }
+
+/* --- tables that may be wider than the screen --------------------------- */
+.scroll { overflow-x: auto; }
+
+/* --- roll call --------------------------------------------------------- */
+table.roll { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 12px; }
+table.roll th, table.roll td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+table.roll th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+table.roll tr.problem td { background: var(--fail-bg); color: var(--fail); }
+table.roll tr.confirm td { background: var(--review-bg); color: var(--review); }
+table.roll tr.problem td:last-child, table.roll tr.confirm td:last-child { font-weight: 700; }
+
+/* --- deciding items in review ------------------------------------------ */
+.review { margin-top: 14px; border: 1px solid #f0d9a8; border-radius: 8px; background: #fffaf0; }
+.review-head { padding: 9px 14px; font-weight: 700; font-size: 13.5px; color: var(--review);
+  border-bottom: 1px solid #f0d9a8; }
+.review-head .muted { font-weight: 400; }
+.item { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 10px 14px; border-bottom: 1px solid #f5e6c6; font-size: 14.5px; }
+.item:last-child { border-bottom: 0; }
+.item-text { flex: 1; }
+.item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+button.dec { padding: 6px 16px; font-size: 13.5px; font-weight: 600; background: #fff;
+  border: 1.5px solid var(--line); color: var(--muted); }
+button.dec.pass:hover { border-color: var(--pass); color: var(--pass); background: #fff; }
+button.dec.fail:hover { border-color: var(--fail); color: var(--fail); background: #fff; }
+button.dec.pass.on { background: var(--pass); border-color: var(--pass); color: #fff; }
+button.dec.fail.on { background: var(--fail); border-color: var(--fail); color: #fff; }
+button.dec:disabled { opacity: .6; cursor: wait; }
+.decided { font-size: 12px; color: var(--muted); font-style: italic; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+a.plain.small { margin-left: 6px; white-space: nowrap; }
+
+/* --- the generated report ---------------------------------------------- */
+#summary-section { margin-top: 24px; }
+.summary-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+#summary { margin-top: 18px; }
+.summary-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+button.secondary, a.button.secondary { background: #fff; color: var(--accent);
+  border: 1.5px solid var(--accent); padding: 8px 16px; font-size: 14px; border-radius: 6px;
+  text-decoration: none; display: inline-block; cursor: pointer; }
+button.secondary:hover, a.button.secondary:hover { background: #eef3f8; }
+.summary-report { border: 1px solid var(--line); border-radius: 8px; padding: 18px 22px; }
+.summary-head { border-left: 4px solid var(--na); padding: 2px 0 2px 14px; margin-bottom: 8px; }
+.summary-head.pass { border-left-color: var(--pass); }
+.summary-head.review { border-left-color: var(--review); }
+.summary-head.fail { border-left-color: var(--fail); }
+.summary-file { font-size: 13px; color: var(--muted); }
+.summary-verdict { font-size: 20px; font-weight: 700; margin: 2px 0; }
+.summary-head.pass .summary-verdict { color: var(--pass); }
+.summary-head.review .summary-verdict { color: var(--review); }
+.summary-head.fail .summary-verdict { color: var(--fail); }
+.summary-report h3 { font-size: 15px; margin: 22px 0 8px; }
+ol.page-issues { list-style: none; padding: 0; margin: 0; }
+ol.page-issues > li { border: 1px solid var(--line); border-left: 4px solid var(--fail);
+  border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; }
+.page-no { font-weight: 700; color: var(--fail); margin-bottom: 4px; }
+ol.page-issues ul, ul.issues { margin: 0; padding-left: 20px; }
+ol.page-issues ul li, ul.issues li { margin: 4px 0; }
+ul.issues.confirm li { color: var(--ink); }
+.all-clear { color: var(--pass); font-weight: 600; margin: 16px 0 4px; }
+.summary-foot { margin: 18px 0 0; }
+
+@media print {
+  body.printing-summary header.site,
+  body.printing-summary .wrap > *:not(#summary-section),
+  body.printing-summary .summary-top,
+  body.printing-summary .summary-actions { display: none !important; }
+  body.printing-summary #summary-section { border: 0; padding: 0; margin: 0; }
+  body.printing-summary { background: #fff; }
+}
+
+@media (max-width: 640px) {
+  .item { flex-direction: column; align-items: flex-start; }
+}

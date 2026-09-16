@@ -2,16 +2,12 @@
 {% block title %}Report — {{ job.filename }}{% endblock %}
 {% block body %}
 
-{% set label = {"pass": "Passable", "review": "Passable, with points to confirm", "fail": "Not passable yet"} %}
-{% set blurb = {
-  "pass": "Every applicable check passed.",
-  "review": "Nothing failed, but some items rest on evidence a scan cannot settle on its own. Please confirm the points listed below by eye.",
-  "fail": "One or more requirements are not met. Fix the items marked FAIL before submitting."
-} %}
+{% set TAG = {"pass": "Pass", "review": "Confirm", "fail": "Fail", "n/a": "N/A"} %}
+{% set statuses = outcome.statuses %}
 
-<div class="verdict {{ verdict }}">
-  <h2>{{ label[verdict] }}</h2>
-  <p>{{ blurb[verdict] }}</p>
+<div class="verdict {{ outcome.verdict }}" id="verdict">
+  <h2 id="verdict-title"></h2>
+  <p id="verdict-blurb"></p>
 </div>
 
 <div class="card">
@@ -20,7 +16,7 @@
     <div>Pages<span>{{ doc.pages|length }}</span></div>
     <div>Meeting date<span>{{ doc.meeting_date.strftime("%d %B %Y") if doc.meeting_date else "not found" }}</span></div>
     <div>Semester<span>{{ doc.semester|capitalize if doc.semester else "unknown" }}</span></div>
-    <div>Result<span>{{ counts["pass"] }} passed · {{ counts["review"] }} to confirm · {{ counts["fail"] }} failed</span></div>
+    <div>Result<span id="tally"></span></div>
   </div>
   {% if not doc.meeting_date %}
   <div class="warn" style="margin-top:16px">
@@ -31,61 +27,18 @@
 </div>
 
 <div class="card">
-  <h2>Summary</h2>
-  <table class="summary">
-    <tr><th>#</th><th>Check</th><th>Result</th><th>Finding</th><th>Pages</th></tr>
-    {% for c in checks %}
-    <tr>
-      <td class="num">{{ loop.index }}</td>
-      <td><a class="plain" href="#check-{{ c.key }}">{{ c.title }}</a></td>
-      <td>
-        <span class="tag {{ 'na' if c.status == 'n/a' else c.status }}">
-          {{ {"pass":"Pass","review":"Confirm","fail":"Fail","n/a":"N/A"}[c.status] }}
-        </span>
-      </td>
-      <td class="finding">{{ c.detail }}</td>
-      <td class="num">{% if c.pages %}{{ c.pages|join(", ") }}{% else %}&mdash;{% endif %}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  <p class="foot">
-    {{ counts["fail"] }} failed &middot; {{ counts["review"] }} to confirm &middot;
-    {{ counts["pass"] }} passed &middot; {{ counts["n/a"] }} not applicable.
-    Click a check to jump to the detail below.
-  </p>
-</div>
-
-<h2>Checklist in detail</h2>
-{% for c in checks %}
-<div class="check {{ 'na' if c.status == 'n/a' else c.status }}" id="check-{{ c.key }}">
-  <div class="top">
-    <h3>{{ c.title }}</h3>
-    <span class="tag {{ 'na' if c.status == 'n/a' else c.status }}">
-      {{ {"pass":"Pass","review":"Confirm","fail":"Fail","n/a":"N/A"}[c.status] }}
-    </span>
-  </div>
-  <p class="detail">{{ c.detail }}</p>
-  {% if c.notes %}
-  <ul class="notes">
-    {% for n in c.notes %}<li>{{ n }}</li>{% endfor %}
-  </ul>
-  {% endif %}
-  <p class="req">Requirement: {{ c.requirement }}</p>
-</div>
-{% endfor %}
-
-<div class="card">
   <h2>Page by page</h2>
+  <div class="scroll">
   <table class="pages">
     <tr>
       <th>Page</th><th>What it is</th><th>Seal</th><th>Letterhead</th>
-      <th>HOD</th><th>Principal</th>
+      <th>HOD</th><th>Principal</th><th></th>
     </tr>
     {% for p in doc.pages %}
     <tr>
       <td class="num">{{ p.number }}{% if p.rotation %} <span class="pill">rotated {{ p.rotation }}&deg;</span>{% endif %}</td>
       <td>
-        {% for k in p.kinds|sort %}<span class="pill">{{ k.replace("_", " ") }}</span> {% endfor %}
+        {% for k in p.kinds|sort %}<span class="pill">{{ {"members_list": "present / absent list"}.get(k, k.replace("_", " ")) }}</span> {% endfor %}
         {% if not p.kinds %}<span class="pill">continuation</span>{% endif %}
       </td>
       <td>
@@ -96,21 +49,106 @@
       <td>{% if p.letterhead.found %}<span class="yes">yes</span>{% else %}&mdash;{% endif %}</td>
       <td>{% if p.authority.hod.found %}<span class="{{ 'yes' if p.authority.hod.strength == 'strong' else 'maybe' }}">yes</span>{% else %}&mdash;{% endif %}</td>
       <td>{% if p.authority.principal.found %}<span class="{{ 'yes' if p.authority.principal.strength == 'strong' else 'maybe' }}">yes</span>{% else %}&mdash;{% endif %}</td>
+      <td>{% if p.image %}<a class="plain small" href="{{ url_for('page_image', job_id=job.id, number=p.number) }}" target="_blank">View</a>{% endif %}</td>
     </tr>
     {% endfor %}
   </table>
+  </div>
   <p class="foot">
     An amber "yes" means the mark was found but not read cleanly &mdash; usually a
-    stamp struck through by a signature. Seals are circled on the page images below.
+    stamp struck through by a signature. "View" opens the page at a readable size.
   </p>
+</div>
+
+<h2>Checklist</h2>
+{% for c in checks %}
+{% set st = statuses[c.key] %}
+<div class="check {{ 'na' if st == 'n/a' else st }}" id="check-{{ c.key }}">
+  <div class="top">
+    <h3>{{ c.title }}</h3>
+    <span class="decided" {% if st == c.status %}hidden{% endif %}>decided on review</span>
+    <span class="tag {{ 'na' if st == 'n/a' else st }}">{{ TAG[st] }}</span>
+  </div>
+  <p class="detail">{{ c.detail }}</p>
+
+  {% if c.table %}
+  <div class="scroll">
+  <table class="roll">
+    <tr><th>Member</th><th>Recorded as</th><th>Attendance sheet</th><th>Result</th></tr>
+    {% for row in c.table %}
+    <tr class="{{ row.outcome }}">
+      <td>{{ row.name }}</td>
+      <td>{{ row.marked }}</td>
+      <td>{{ row.signature }}{% if row.page %} <span class="muted">(p. {{ row.page }})</span>{% endif %}</td>
+      <td>{{ {"ok": "OK", "problem": "Problem", "confirm": "Confirm"}[row.outcome] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% endif %}
+
+  {% if c.notes %}
+  <ul class="notes">
+    {% for n in c.notes %}<li>{{ n }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if c.status == "review" %}
+  <div class="review">
+    <div class="review-head">
+      Your decision
+      <span class="muted">&mdash; look at {{ 'each page' if c.items|length > 1 else 'the page' }}, then pass or fail {{ 'each item' if c.items|length > 1 else 'it' }}</span>
+    </div>
+    {% for it in c.items %}
+    {% set d = job.decisions.get(c.key, {}).get(it.id) %}
+    <div class="item" data-check="{{ c.key }}" data-item="{{ it.id }}">
+      <div class="item-text">
+        {% if it.page %}<strong>Page {{ it.page }}</strong> &mdash; {% endif %}{{ it.label }}
+        {% if it.page %}<a class="plain small" href="{{ url_for('page_image', job_id=job.id, number=it.page) }}" target="_blank">view page</a>{% endif %}
+      </div>
+      <div class="item-actions">
+        <button type="button" class="dec pass {{ 'on' if d == 'pass' }}" data-decision="pass">Pass</button>
+        <button type="button" class="dec fail {{ 'on' if d == 'fail' }}" data-decision="fail">Fail</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <p class="req">Requirement: {{ c.requirement }}</p>
+</div>
+{% endfor %}
+
+<div class="card" id="summary-section">
+  <div class="summary-top">
+    <div>
+      <h2>Report of problems</h2>
+      <p class="lede" style="margin-bottom:0">
+        A point-by-point list of the failing pages and what is wrong with each,
+        including anything you failed above.
+      </p>
+    </div>
+    <button type="button" id="generate">Generate report</button>
+  </div>
+  <div id="summary" hidden></div>
+  <div class="summary-actions" id="summary-actions" hidden>
+    <button type="button" class="secondary" id="copy">Copy as text</button>
+    <a class="button secondary" href="{{ url_for('summary_text', job_id=job.id) }}" id="download">Download .txt</a>
+    <button type="button" class="secondary" id="print">Print / save as PDF</button>
+    <span class="muted" id="summary-note"></span>
+  </div>
 </div>
 
 <div class="card">
   <h2>Pages, with seals circled</h2>
   <div class="thumbs">
     {% for p in doc.pages %}
-    <figure>
-      {% if p.thumbnail %}<img src="{{ p.thumbnail }}" alt="Page {{ p.number }}">{% endif %}
+    <figure id="page-{{ p.number }}">
+      {% if p.thumbnail %}
+      <a href="{{ url_for('page_image', job_id=job.id, number=p.number) }}" target="_blank">
+        <img src="{{ p.thumbnail }}" alt="Page {{ p.number }}">
+      </a>
+      {% endif %}
       <figcaption>
         Page {{ p.number }} &mdash;
         {% if p.seal_state == "present" %}seal found
@@ -127,5 +165,100 @@
   <a class="plain" href="{{ url_for('report_json', job_id=job.id) }}">Download as JSON</a> ·
   <a class="plain" href="{{ url_for('index') }}">Check another BoS</a>
 </p>
+
+<script>
+  const JOB = {{ job.id|tojson }};
+  const TAG = {pass: "Pass", review: "Confirm", fail: "Fail", "n/a": "N/A"};
+  const ORIGINAL = {{ checks|map(attribute="status")|list|tojson }};
+  const KEYS = {{ checks|map(attribute="key")|list|tojson }};
+  const VERDICT = {
+    pass: ["Passable", "Every applicable check passed."],
+    review: ["Passable, with points to confirm",
+             "Nothing has failed, but some items still need a person to look. " +
+             "Open each item marked Confirm, look at the page, and pass or fail it."],
+    fail: ["Not passable yet",
+           "One or more requirements are not met. Generate the report below for " +
+           "a list of the failing pages and what is wrong with each."]
+  };
+
+  function showOutcome(verdict, counts) {
+    const box = document.getElementById("verdict");
+    box.className = "verdict " + verdict;
+    document.getElementById("verdict-title").textContent = VERDICT[verdict][0];
+    document.getElementById("verdict-blurb").textContent = VERDICT[verdict][1];
+    document.getElementById("tally").textContent =
+      counts.pass + " passed · " + counts.review + " to confirm · " + counts.fail + " failed";
+  }
+
+  function showCheck(key, status) {
+    const card = document.getElementById("check-" + key);
+    const cls = status === "n/a" ? "na" : status;
+    card.className = "check " + cls;
+    const tag = card.querySelector(".top .tag");
+    tag.className = "tag " + cls;
+    tag.textContent = TAG[status];
+    card.querySelector(".decided").hidden = status === ORIGINAL[KEYS.indexOf(key)];
+  }
+
+  showOutcome({{ outcome.verdict|tojson }}, {{ outcome.counts|tojson }});
+
+  const summaryBox = document.getElementById("summary");
+
+  async function loadSummary() {
+    const r = await fetch("/report/" + JOB + "/summary");
+    summaryBox.innerHTML = await r.text();
+    summaryBox.hidden = false;
+    document.getElementById("summary-actions").hidden = false;
+    document.getElementById("generate").textContent = "Generate again";
+    document.getElementById("summary-note").textContent = "";
+  }
+
+  document.querySelectorAll(".item .dec").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const row = btn.closest(".item");
+      const wanted = btn.dataset.decision;
+      const decision = btn.classList.contains("on") ? null : wanted;
+      btn.disabled = true;
+      try {
+        const r = await fetch("/report/" + JOB + "/decide", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({check: row.dataset.check, item: row.dataset.item, decision})
+        });
+        const out = await r.json();
+        if (!r.ok) throw new Error(out.error || "Could not save that decision.");
+        row.querySelectorAll(".dec").forEach(b =>
+          b.classList.toggle("on", b.dataset.decision === decision));
+        showCheck(out.check.key, out.check.status);
+        showOutcome(out.verdict, out.counts);
+        if (!summaryBox.hidden) loadSummary();
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.getElementById("generate").addEventListener("click", loadSummary);
+
+  document.getElementById("copy").addEventListener("click", async () => {
+    const r = await fetch("/report/" + JOB + "/summary.txt");
+    const text = await r.text();
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById("summary-note").textContent = "Copied.";
+    } catch (e) {
+      document.getElementById("summary-note").textContent =
+        "Copying is blocked by the browser here — use Download .txt instead.";
+    }
+  });
+
+  document.getElementById("print").addEventListener("click", () => {
+    document.body.classList.add("printing-summary");
+    window.print();
+    document.body.classList.remove("printing-summary");
+  });
+</script>
 
 {% endblock %}

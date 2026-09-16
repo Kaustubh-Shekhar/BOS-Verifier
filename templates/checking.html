@@ -34,7 +34,9 @@
         window.location = "/report/" + jobId;
         return;
       }
-      msg.textContent = "Examining each page for seals, stamps and signatures…";
+      msg.textContent = s.state === "queued"
+        ? "Waiting for another document to finish…"
+        : "Examining each page for seals, stamps and signatures…";
     } catch (e) {
       count.textContent = "Lost contact with the app — retrying…";
     }
